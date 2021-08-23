@@ -1,0 +1,27 @@
+{
+  "name": "catpobot",
+  "version": "1.0.0",
+  "description": ".",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "guid": "0.0.12",
+    "image-size": "^1.0.0",
+    "jimp": "^0.16.1",
+    "promise": "^8.0.1",
+    "telegraf": "^4.4.1"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git@https://github.com/albertoxamin/catpobot.git"
+  },
+  "author": "albertoxamin",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/albertoxamin/catpobot/issues"
+  },
+  "homepage": "http://xamin.it"
+}
