@@ -9,6 +9,7 @@
   "dependencies": {
     "guid": "0.0.12",
     "image-size": "^1.0.0",
+    "imgur-uploader": "^4.2.1",
     "jimp": "^0.16.1",
     "promise": "^8.0.1",
     "telegraf": "3.38.0"

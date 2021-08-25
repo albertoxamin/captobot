@@ -10,15 +10,23 @@ const { Telegram, Markup, Router, Extra } = require('telegraf')
 const Jimp = require('jimp')
 const guid = require('guid')
 const fs = require('fs')
+const imgurUploader = require('imgur-uploader');
 
 const bot = new Telegraf(config.telegraf_token);
 
 var telegram = new Telegram(config.telegraf_token, null)
 var username = "";
+var cache = [];
+
+
 bot.telegram.getMe().then((bot_informations) => {
 	bot.options.username = bot_informations.username;
 	username = bot_informations.username;
 	console.log("Server has initialized bot nickname. Nick: " + bot_informations.username);
+	if (fs.existsSync('./templates/cache.json')) {
+		cache = require('./templates/cache.json');	
+		console.log("Server has loaded cache.json");
+	}
 });
 
 bot.command('pic', (ctx) => {
@@ -74,7 +82,6 @@ bot.on('photo', (ctx) => {
 	}
 })
 
-var cache = [];
 bot.command('cache', (ctx) => {
 	cache = []
 	for (let key in templates) {
@@ -82,6 +89,12 @@ bot.command('cache', (ctx) => {
 			cache.push({ id: key, file_id: cx.photo[0].file_id });
 		})
 	}
+	setTimeout(() => {
+		fs.writeFile('./templates/cache.json', JSON.stringify(cache), function (err) {
+			if (err) return console.log(err);
+			console.log('updated Cache');
+		});
+	}, 5000);
 })
 
 bot.on('inline_query', ctx => {
@@ -140,16 +153,15 @@ function image(ctx, name, x, y, width, color, forceSmall = false, message_id=nul
 							})
 						)
 					else {
-						fs.readFile(name, function (err, data) {
+						imgurUploader(fs.readFileSync(name), {title: 'ok'}).then(data => {
+							fs.unlink(name, (err) => {
+								if (err) throw err;
+								console.log('successfully deleted ' + name);
+							})
 							telegram.editMessageMedia(undefined, undefined, message_id, {
 								type: 'photo',
-								media: name,
-							}).then((cx) =>
-								fs.unlink(name, (err) => {
-									if (err) throw err;
-									console.log('successfully deleted ' + name);
-								})
-							)
+								media: data.link,
+							})
 						});
 					}
 				});
