@@ -10,15 +10,23 @@ const { Telegram, Markup, Router, Extra } = require('telegraf')
 const Jimp = require('jimp')
 const guid = require('guid')
 const fs = require('fs')
+const imgurUploader = require('imgur-uploader');
 
 const bot = new Telegraf(config.telegraf_token);
 
 var telegram = new Telegram(config.telegraf_token, null)
 var username = "";
+var cache = [];
+
+
 bot.telegram.getMe().then((bot_informations) => {
 	bot.options.username = bot_informations.username;
 	username = bot_informations.username;
 	console.log("Server has initialized bot nickname. Nick: " + bot_informations.username);
+	if (fs.existsSync('./templates/cache.json')) {
+		cache = require('./templates/cache.json');	
+		console.log("Server has loaded cache.json");
+	}
 });
 
 bot.command('pic', (ctx) => {
@@ -74,20 +82,47 @@ bot.on('photo', (ctx) => {
 	}
 })
 
+bot.command('cache', (ctx) => {
+	cache = []
+	for (let key in templates) {
+		ctx.replyWithPhoto({ source: `./templates/${key}.jpg` }, { caption: key }).then((cx) => {
+			cache.push({ id: key, file_id: cx.photo[0].file_id });
+		})
+	}
+	setTimeout(() => {
+		fs.writeFile('./templates/cache.json', JSON.stringify(cache), function (err) {
+			if (err) return console.log(err);
+			console.log('updated Cache');
+		});
+	}, 5000);
+})
 
 bot.on('inline_query', ctx => {
 	let command = ctx.update.inline_query.query;
-	let new_arr = [{
+	let new_arr = cache.map(x => ({
 		type: 'photo',
-		photo_url: './ago.jpg',
-		photo_url: './ago.jpg'
-	}];
+		id: x.id,
+		photo_file_id: x.file_id,
+		title: x.id,
+		reply_markup: Markup.inlineKeyboard([
+			Markup.urlButton(`©️ ${ctx.from.username}`, `https://lmgtfy.app/#gsc.tab=0&gsc.q=${ctx.from.username}`)
+		])
+	}))
 	return ctx.answerInlineQuery(new_arr, { cache_time: 0 });
 })
 
-function image(ctx, name, x, y, width, color, forceSmall = false) {
+bot.on('chosen_inline_result', ctx => {
+	console.log();
+	let mess_id = ctx.update.chosen_inline_result.inline_message_id;
+	let text = ctx.update.chosen_inline_result.query;
+	let sel = ctx.update.chosen_inline_result.result_id;
+	image(ctx, sel, templates[sel][0], templates[sel][1], templates[sel][2], templates[sel][3], templates[sel][4], mess_id, text);
+})
+
+function image(ctx, name, x, y, width, color, forceSmall = false, message_id=null, caption=null) {
 	var fileName = './templates/' + name + '.jpg';
-	var imageCaption = ctx.message.text.toString().replace('/pic ' + name, '').replace('@' + username, '').trim();
+	var imageCaption = caption ?? ctx.message.text.toString().replace('/pic ' + name, '').replace('@' + username, '').trim();
+	console.log(imageCaption);
 	if (imageCaption == undefined || imageCaption.length == 0)
 		return ctx.reply('Se non sai neanche tu cosa vuoi scrivere, non chiedermelo neanche... ');
 	var loadedImage;
@@ -108,16 +143,30 @@ function image(ctx, name, x, y, width, color, forceSmall = false) {
 					let extra = {
 						caption: 'from @' + ctx.from.username
 					};
-					if (ctx.message.reply_to_message != undefined)
+					if (!message_id && ctx.message.reply_to_message != undefined)
 						extra.reply_to_message_id = ctx.message.reply_to_message.message_id;
-					ctx.replyWithPhoto({ source: name }, extra).then((cx) =>
-						fs.unlink(name, (err) => {
-							if (err) throw err;
-							console.log('successfully deleted ' + name);
-						})
-					)
+					if (message_id === null)
+						ctx.replyWithPhoto({ source: name }, extra).then((cx) =>
+							fs.unlink(name, (err) => {
+								if (err) throw err;
+								console.log('successfully deleted ' + name);
+							})
+						)
+					else {
+						imgurUploader(fs.readFileSync(name), {title: 'ok'}).then(data => {
+							fs.unlink(name, (err) => {
+								if (err) throw err;
+								console.log('successfully deleted ' + name);
+							})
+							telegram.editMessageMedia(undefined, undefined, message_id, {
+								type: 'photo',
+								media: data.link,
+							})
+						});
+					}
 				});
-			ctx.deleteMessage(ctx.message.id);
+			if (!message_id)
+				ctx.deleteMessage(ctx.message.id);
 		})
 		.catch(function (err) {
 			console.error(err);
